@@ -1,0 +1,10 @@
+
+.flex {
+    display: flex;
+    gap: 50px;
+  
+}
+
+.static {
+    font-size: x-large;
+}

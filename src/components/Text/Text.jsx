@@ -1,114 +1,108 @@
-import { Box, Button, Typography } from "@mui/material"
-import styles from './Text.module.css'
-import { useEffect, useRef, useState } from "react"
+import  { useEffect, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { Box } from "@mui/material";
+import styles from './Text.module.css';
+
+import {
+    setErrors, setTime, setKS, setKSM,
+    setCharIndex, setIsTyping, setCorrectWrong,
+    resetGame
+} from "../../hooks/reducer";
+import TextDisplay from "../TextDisplay/TextDisplay";
+import ResultDisplay from "../ResultDisplay/ResultDisplay";
+import { calculateSpeeds, processInput } from "../../utils/calculateSpeed";
 
 export default function Text() {
-    const text = 'Создать приложение "Typing Speed Trainer" на React, которое оценит скорость печати пользователя. Приложение должно предоставлять пользователю текст для ввода, показывать правильные и неправильные символы разными цветами, а также отображать статистику по скорости печати и числу ошибок.'
-    const [time, setTime] = useState(60)
-    const [errors, setErrors] = useState(0)
-    const [KS, setKS] = useState(0)
-    const [KSM, setKSM] = useState(0)
-    const [charIndex, setCharIndex] = useState(0)
-    const [isTyping, setIsTyping] = useState(false)
-    const inputRef = useRef(null)
-    const charRefs = useRef([])
-    const [correctWrong, setCorrectWrong] = useState([])
+    const dispatch = useDispatch();
+    const {
+        time,
+        errors,
+        KS,
+        KSM,
+        charIndex,
+        isTyping,
+        correctWrong
+    } = useSelector((state) => state.poizon);
+
+    const text = 'Создать приложение "Typing Speed Trainer" на React, которое оценит скорость печати пользователя. Приложение должно предоставлять пользователю текст для ввода, показывать правильные и неправильные символы разными цветами, а также отображать статистику по скорости печати и числу ошибок.';
+    const inputRef = useRef(null);
+    const charRefs = useRef([]);
 
     useEffect(() => {
         inputRef.current.focus();
-        setCorrectWrong(Array(charRefs.current.length).fill(''))
-    }, [])
+        dispatch(setCorrectWrong(Array(charRefs.current.length).fill('')));
+    }, [dispatch]);
 
     useEffect(() => {
         let interval;
 
         if (isTyping && time > 0) {
             interval = setInterval(() => {
-                setTime(time - 1);
-                let correctWords = Math.floor((charIndex - errors) / 5);
-                let totalWords = Math.floor(charIndex / 5);
-                let totalTime = 60 - time;
-
-                let ks = correctWords * (60 / totalTime);
-                ks = ks < 0 || !ks || ks === Infinity ? 0 : ks;
-                setKS(parseInt(ks, 10));
-
-                let ksm = totalWords * (60 / totalTime);
-                ksm = ksm < 0 || !ksm || ksm === Infinity ? 0 : ksm;
-                setKSM(parseInt(ksm, 10));
+                dispatch(setTime(time - 1));
+                const { KS, KSM } = calculateSpeeds(charIndex, errors, time);
+                dispatch(setKS(KS));
+                dispatch(setKSM(KSM));
             }, 1000);
         } else if (time === 0) {
             clearInterval(interval);
-            setIsTyping(false);
+            dispatch(setIsTyping(false));
         }
 
         return () => clearInterval(interval);
-    }, [isTyping, time, charIndex, errors]);
+    }, [dispatch, isTyping, time, charIndex, errors]);
 
-    const resetGame = () => {
-        setIsTyping(false);
-        setTime(60);
-        setCharIndex(0);
-        setErrors(0);
-        setKS(0);
-        setKSM(0);
-        setCorrectWrong(Array(charRefs.current.length).fill(''));
+    const resetGameHandler = () => {
+        dispatch(resetGame());
         inputRef.current.focus();
     }
 
     const handleChange = (e) => {
         const chars = charRefs.current;
-        let currentChar = chars[charIndex];
-        let typedChar = e.target.value.slice(-1);
+        const currentChar = chars[charIndex];
+        const typedChar = e.target.value.slice(-1);
 
         if (charIndex < chars.length && time > 0) {
             if (!isTyping) {
-                setIsTyping(true);
+                dispatch(setIsTyping(true));
             }
 
-            const newCorrectWrong = [...correctWrong];
+            const { charIndex: newCharIndex, errors: newErrors, correctWrong: newCorrectWrong } =
+                processInput(charIndex, errors, typedChar, currentChar, correctWrong, styles);
 
-            if (typedChar === currentChar.textContent) {
-                newCorrectWrong[charIndex] = styles.correct;
-                setCharIndex(charIndex + 1);
-            } else {
-                newCorrectWrong[charIndex] = styles.wrong;
-                setErrors(errors + 1);
-                setCharIndex(charIndex + 1);
-            }
+            dispatch(setCharIndex(newCharIndex));
+            dispatch(setErrors(newErrors));
+            dispatch(setCorrectWrong(newCorrectWrong));
 
-            setCorrectWrong(newCorrectWrong);
             e.target.value = '';
-            if (charIndex === chars.length - 1) setIsTyping(false);
+            if (newCharIndex === chars.length - 1) dispatch(setIsTyping(false));
         } else {
-            setIsTyping(false);
+            dispatch(setIsTyping(false));
         }
     }
 
     return (
         <div className={styles.container}>
             <Box className={styles.test}>
-                <input type="text" className={styles.inputText} ref={inputRef} onChange={handleChange} />
-                {
-                    text.split("").map((char, index) => (
-                        <span
-                            key={index}
-                            className={`${styles.char} ${index === charIndex ? `${styles.active}` : ""} ${correctWrong[index]}`}
-                            ref={(e) => charRefs.current[index] = e}>
-                            {char}
-                        </span>
-                    ))
-                }
+                <input
+                    type="text"
+                    className={styles.inputText}
+                    ref={inputRef}
+                    onChange={handleChange}
+                />
+                <TextDisplay
+                    text={text}
+                    charIndex={charIndex}
+                    correctWrong={correctWrong}
+                    charRefs={charRefs}
+                />
             </Box>
-            <Box className={styles.result}>
-                <Typography>Время: <strong>{time}</strong></Typography>
-                <Typography>Ошибки: <strong>{errors}</strong></Typography>
-                <Typography>КС: <strong>{KS}</strong></Typography>
-                <Typography>КСМ: <strong>{KSM}</strong></Typography>
-                <Button variant="contained" onClick={resetGame}>начать заново</Button>
-            </Box>
-            <Typography>КС - количество правильно веденных слов в минуту</Typography>
-            <Typography>КСМ - количество слов в минуту</Typography>
+            <ResultDisplay
+                time={time}
+                errors={errors}
+                KS={KS}
+                KSM={KSM}
+                onReset={resetGameHandler}
+            />
         </div>
-    )
+    );
 }
