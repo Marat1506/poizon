@@ -7,8 +7,8 @@ export const calculateSpeeds = (charIndex, errors, time) => {
     const KSM = totalWords * (60 / totalTime);
 
     return {
-        KS: KS < 0 || !KS || KS === Infinity ? 0 : parseInt(KS, 10),
-        KSM: KSM < 0 || !KSM || KSM === Infinity ? 0 : parseInt(KSM, 10)
+        KS: KS < 0 ? 0 : parseInt(KS, 10),
+        KSM: KSM < 0 ? 0 : parseInt(KSM, 10)
     };
 };
 
